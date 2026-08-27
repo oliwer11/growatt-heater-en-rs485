@@ -4,7 +4,7 @@ An ESP32 sketch that reads a **Growatt SPH 10000TL3 BH-UP** hybrid inverter over
 Modbus RTU / RS485, serves a dashboard from its own WiFi access point, and switches
 a solid state relay to dump surplus solar into a water heater.
 
-Single file, no build system, no external configuration — `growatt-heater-en.ino`
+Single file, no build system, no external configuration — `growatt-heater-en-rs485.ino`
 is the whole project.
 
 ![platform](https://img.shields.io/badge/platform-ESP32-blue)
