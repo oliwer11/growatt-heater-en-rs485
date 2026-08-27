@@ -7,7 +7,7 @@ Reference material for the build.
 | [`Growatt-heater-wiring-diagram.pdf`](Growatt-heater-wiring-diagram.pdf) | Wiring schematic for the whole build |
 | [`Growatt_InstMan_SPH_4000-10000TL3_BH-UP_EN.pdf`](Growatt_InstMan_SPH_4000-10000TL3_BH-UP_EN.pdf) | Growatt SPH installation manual |
 | [`TTGO-T-call-Pinout-Diagram-Large.jpg`](TTGO-T-call-Pinout-Diagram-Large.jpg) | LILYGO TTGO T-Call V1.3 pinout |
-| [`Screenshot_1.png`](Screenshot_1.png) | The Waveshare 3485/485 transceiver actually used |
+| [`RS485_top_view.png`](RS485_top_view.png) | The Waveshare 3485/485 transceiver actually used |
 | [`UART_TTL_RS485_MAX485_5V_ARDUINO.png`](UART_TTL_RS485_MAX485_5V_ARDUINO.png) | Generic MAX485 module, the separate DE/RE variant |
 | [`Relay_5V_2-channel.png`](Relay_5V_2-channel.png) | 5 V two-channel relay module |
 | [`Relay_5V_2-channel_topwiev.png`](Relay_5V_2-channel_topwiev.png) | Same module, top view |
