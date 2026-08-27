@@ -21,6 +21,29 @@ is the whole project.
 
 ---
 
+## Why this exists
+
+A hybrid inverter with its own battery is deliberately bad at telling you when it
+has energy to spare. It charges the battery first, and under a virtual-battery
+arrangement it exports nothing to the grid — so the export register a surplus
+controller would normally watch reads zero all day. There is no straightforward
+"spare watts" number to read anywhere.
+
+This project works around that. Instead of chasing a surplus figure that never
+appears, it watches two things that *are* reliable:
+
+- **PV string voltage** — a coarse but honest proxy for how hard the sun is
+  shining.
+- **Battery state of charge** — once the battery is nearly full, whatever the
+  panels are still producing has nowhere useful to go.
+
+When both sit above their thresholds, the ESP32 closes a relay wired to the
+heating element in a hot water tank, and the surplus ends up as hot water instead
+of being throttled away at the inverter. When either one drops, the relay opens
+again.
+
+---
+
 ## ⚠️ Safety first
 
 The output of this controller switches **230 V AC** through a relay. If you
