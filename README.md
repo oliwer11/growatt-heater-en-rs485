@@ -2,7 +2,7 @@
 
 An ESP32 sketch that reads a **Growatt SPH 10000TL3 BH-UP** hybrid inverter over
 Modbus RTU / RS485, serves a dashboard from its own WiFi access point, and switches
-a relay to dump surplus solar into a water heater.
+a 2 kW heating element to dump surplus solar into hot water.
 
 Single file, no build system, no external configuration — `growatt-heater-en-rs485.ino`
 is the whole project.
@@ -37,17 +37,17 @@ appears, it watches two things that *are* reliable:
 - **Battery state of charge** — once the battery is nearly full, whatever the
   panels are still producing has nowhere useful to go.
 
-When both sit above their thresholds, the ESP32 closes a relay wired to the
-heating element in a hot water tank, and the surplus ends up as hot water instead
-of being throttled away at the inverter. When either one drops, the relay opens
-again.
+When both sit above their thresholds, the ESP32 closes a relay, which switches the
+solid state relay feeding the heating element in a hot water tank. The surplus
+ends up as hot water instead of being throttled away at the inverter. When either
+one drops, the output opens again.
 
 ---
 
 ## ⚠️ Safety first
 
-The output of this controller switches **230 V AC** through a relay. If you
-build this:
+The output of this controller switches a **2 kW heating element on 230 V AC**
+through a solid state relay. If you build this:
 
 - The GPIO is driven **LOW as the very first statement in `setup()`** — the safe
   state after every boot and brownout. Keep it that way.
@@ -64,7 +64,7 @@ build this:
 ```
   Growatt SPH ──RS485──► ESP32 ──┬──► WiFi AP + dashboard (192.168.10.1)
    (Modbus slave)                │
-                                 └──► relay module ──► water heater (230 V)
+                                 └──► relay ──► SSR ──► heating element (2 kW)
 ```
 
 Every 30 seconds the ESP32 polls three register blocks from the inverter and prints
@@ -79,7 +79,10 @@ the heater should be running.
 |---|---|
 | LILYGO TTGO T-Call V1.3 | ESP32 + SIM800L + IP5306. The SIM800 is unused, but its pins are physically occupied. |
 | Waveshare TTL ↔ RS485 transceiver | A / B screw terminals. Any MAX485-style module with a DE+RE line works. |
-| Relay module, 5 V coil | Powered from a separate 5 V supply, input driven straight from 3.3 V logic. No series resistor. |
+| Relay module, 5 V | Drives the SSR control input. Powered from the 5 V supply, `IN2` driven straight from 3.3 V logic, no series resistor. |
+| SSR, 4–32 V DC input | Carries the heater current. Switched by the relay contact, not by the ESP32 directly. |
+| 5 V / 3 A supply | Feeds the relay module and the transceiver. |
+| 2 kW heating element | In the hot water tank, fused at 16 A. |
 
 ### GPIO map
 
@@ -88,7 +91,7 @@ the heater should be running.
 | 19 | UART2 RX ← transceiver RO |
 | 18 | UART2 TX → transceiver DI |
 | 25 | transceiver DE + RE, labelled `RSE` on the Waveshare board |
-| 2 | relay module IN (3.3 V logic) |
+| 2 | relay module `IN2` (3.3 V logic) |
 | 13 | built-in status LED |
 
 Board photos, the wiring schematic and the inverter's installation manual are in
@@ -117,40 +120,47 @@ Swapping A and B is harmless — it is a differential bus, reversed polarity sim
 means no data — and it is the first thing to try when nothing comes back. It shows
 up as a `0xE2` timeout in the log.
 
-### Relay drive
+### Output stage
 
-The heater ended up being switched by an **ordinary relay module**. The solid
-state relay and optocoupler this project started with turned out not to be
-needed.
+The output is **two-stage**: the ESP32 drives a small relay module, and that
+relay's contact closes the control input of a **solid state relay**, which is what
+actually carries the heater current.
 
 ```
-  5 V supply ──► relay module VCC
-         GND ──► relay module GND ──── tied to TTGO GND
-       GPIO2 ──► relay module IN       3.3 V logic, no series resistor
+  GPIO2 ─────────────► relay module IN2      3.3 V logic, no series resistor
+  5 V supply ────────► relay module DC+/DC−
+
+  relay COM / NO ────► SSR A1 / A2           4–32 V DC control input
+  SSR U1 / U2 ───────► heating element       2 kW, 230 V, fused at 16 A
 ```
 
-The coil runs on 5 V from a separate supply, while the module's `IN` pin is
-driven straight from the ESP32's 3.3 V GPIO. That works because `IN` is a logic
-input, not the coil itself — no series resistor is required. The two grounds must
-be tied together, otherwise the signal has no reference.
+The relay module's `IN2` pin is driven straight from the ESP32's 3.3 V GPIO with
+no series resistor — `IN2` is a logic input, not the coil. The coil runs on 5 V
+from the separate supply, and the two grounds must be tied together or the signal
+has no reference.
+
+Two stages rather than one because the ESP32 only sources 3.3 V. An SSR with a
+4–32 V input will often trigger at that level, but it is below the guaranteed
+range; the relay sidesteps the question and adds galvanic separation as a bonus.
+The relay contact only ever carries the SSR's control current, a few milliamps of
+DC, so contact wear is a non-issue — the 2 kW runs through the SSR, which has no
+contacts to burn.
+
+The safety chain follows the same path: GPIO low → relay open → SSR control open
+→ heater off. That is the state the firmware forces on boot and on every
+watchdog.
+
+Designators as drawn in the [schematic](docs/Growatt-heater-wiring-diagram.pdf):
+`-G10` 5 V / 3 A supply · `-RLY_MODULE` relay module · `-K181` SSR ·
+`-E181` 2 kW heater · `-F181` 2 A control fuse · `-F182` 16 A heater fuse.
 
 > [!WARNING]
-> The module used here is **active-HIGH**: a high `IN` energises the relay, which
-> is what the firmware assumes. Plenty of cheap relay boards are **active-LOW**,
-> though, and on those the whole fail-safe design inverts: the firmware drives
-> the pin LOW as the first statement in `setup()`, which on an active-LOW board
-> would switch the heater **on** at every boot and every brownout. Check which
-> kind you have before you connect anything to mains.
-
-Check the contact rating against your element as well. A 2 kW heater draws about
-9 A, which sits at the very top of what the common 10 A relay modules are rated
-for, and a resistive mains load is hard on relay contacts over thousands of
-cycles. This is the argument for the solid state relay the project originally
-used — the relay is simpler, the SSR lasts longer.
-
-The firmware still calls this output `SSR_PIN` and `SSR_*` throughout. Those are
-identifier names carried over from the original design, not a claim about what
-is on the other end of the wire.
+> The relay module used here is **active-HIGH**: a high `IN2` energises the relay,
+> which is what the firmware assumes. Plenty of cheap relay boards are
+> **active-LOW**, though, and on those the whole fail-safe design inverts: the
+> firmware drives the pin LOW as the first statement in `setup()`, which on an
+> active-LOW board would close the SSR at every boot and every brownout. Check
+> which kind you have before you connect anything to mains.
 
 
 ---
