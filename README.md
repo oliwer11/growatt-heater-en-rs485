@@ -11,6 +11,14 @@ is the whole project.
 ![protocol](https://img.shields.io/badge/protocol-Modbus%20RTU-orange)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
+> [!IMPORTANT]
+> **Plug the RS485 cable into the inverter's `RS485-3` socket.**
+> On the `METER` sockets the inverter is the Modbus *master* polling its
+> own energy meter, and inverter data cannot be read from there at all —
+> neither actively nor passively. This is the single most common reason
+> people spend weeks getting nothing back.
+> See [Finding the right port](#finding-the-right-port--read-this-before-wiring).
+
 ---
 
 ## ⚠️ Safety first
