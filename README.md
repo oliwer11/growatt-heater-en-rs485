@@ -64,9 +64,12 @@ the heater should be running.
 |---|---|
 | 19 | UART2 RX ← transceiver RO |
 | 18 | UART2 TX → transceiver DI |
-| 25 | transceiver DE + RE (tied together) |
+| 25 | transceiver DE + RE, labelled `RSE` on the Waveshare board |
 | 2 | relay module IN (3.3 V logic) |
 | 13 | built-in status LED |
+
+Board photos, the wiring schematic and the inverter's installation manual are in
+[`docs/`](docs/).
 
 **Pins the T-Call board already uses — do not touch:** 4, 5 (SIM800 PWRKEY/RST),
 16, 17 (PSRAM), 21, 22 (I²C / IP5306), 23 (SIM800 POWER_ON), 26, 27 (SIM800 UART),
@@ -109,12 +112,12 @@ input, not the coil itself — no series resistor is required. The two grounds m
 be tied together, otherwise the signal has no reference.
 
 > [!WARNING]
-> This assumes an **active-HIGH** module, where a high `IN` energises the relay.
-> Plenty of cheap relay boards are **active-LOW**, and on those the whole
-> fail-safe design inverts: the firmware drives the pin LOW as the first
-> statement in `setup()`, which on an active-LOW board would switch the heater
-> **on** at every boot and every brownout. Check which kind you have before you
-> connect anything to mains.
+> The module used here is **active-HIGH**: a high `IN` energises the relay, which
+> is what the firmware assumes. Plenty of cheap relay boards are **active-LOW**,
+> though, and on those the whole fail-safe design inverts: the firmware drives
+> the pin LOW as the first statement in `setup()`, which on an active-LOW board
+> would switch the heater **on** at every boot and every brownout. Check which
+> kind you have before you connect anything to mains.
 
 Check the contact rating against your element as well. A 2 kW heater draws about
 9 A, which sits at the very top of what the common 10 A relay modules are rated
