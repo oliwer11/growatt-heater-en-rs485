@@ -2,7 +2,7 @@
 
 An ESP32 sketch that reads a **Growatt SPH 10000TL3 BH-UP** hybrid inverter over
 Modbus RTU / RS485, serves a dashboard from its own WiFi access point, and switches
-a solid state relay to dump surplus solar into a water heater.
+a relay to dump surplus solar into a water heater.
 
 Single file, no build system, no external configuration — `growatt-heater-en-rs485.ino`
 is the whole project.
@@ -23,8 +23,8 @@ is the whole project.
 
 ## ⚠️ Safety first
 
-The output of this controller switches **230 V AC at up to 25 A** through a solid
-state relay. If you build this:
+The output of this controller switches **230 V AC** through a relay. If you
+build this:
 
 - The GPIO is driven **LOW as the very first statement in `setup()`** — the safe
   state after every boot and brownout. Keep it that way.
@@ -41,7 +41,7 @@ state relay. If you build this:
 ```
   Growatt SPH ──RS485──► ESP32 ──┬──► WiFi AP + dashboard (192.168.10.1)
    (Modbus slave)                │
-                                 └──► optocoupler ──► SSR ──► water heater (230 V)
+                                 └──► relay module ──► water heater (230 V)
 ```
 
 Every 30 seconds the ESP32 polls three register blocks from the inverter and prints
@@ -56,8 +56,7 @@ the heater should be running.
 |---|---|
 | LILYGO TTGO T-Call V1.3 | ESP32 + SIM800L + IP5306. The SIM800 is unused, but its pins are physically occupied. |
 | Waveshare TTL ↔ RS485 transceiver | A / B screw terminals. Any MAX485-style module with a DE+RE line works. |
-| PC817 optocoupler | 330 Ω series resistor, 10 kΩ pull-down. |
-| SSR RSR 62-48D25 | 4–32 V DC control input, 230 V / 25 A AC output. |
+| Relay module, 5 V coil | Powered from a separate 5 V supply, input driven straight from 3.3 V logic. No series resistor. |
 
 ### GPIO map
 
@@ -66,7 +65,7 @@ the heater should be running.
 | 19 | UART2 RX ← transceiver RO |
 | 18 | UART2 TX → transceiver DI |
 | 25 | transceiver DE + RE (tied together) |
-| 2 | optocoupler anode → SSR |
+| 2 | relay module IN (3.3 V logic) |
 | 13 | built-in status LED |
 
 **Pins the T-Call board already uses — do not touch:** 4, 5 (SIM800 PWRKEY/RST),
@@ -92,21 +91,41 @@ Swapping A and B is harmless — it is a differential bus, reversed polarity sim
 means no data — and it is the first thing to try when nothing comes back. It shows
 up as a `0xE2` timeout in the log.
 
-### SSR drive
+### Relay drive
+
+The heater ended up being switched by an **ordinary relay module**. The solid
+state relay and optocoupler this project started with turned out not to be
+needed.
 
 ```
-  GPIO2 ──[330 Ω]──►│─── PC817 ───── SSR control input (4–32 V DC)
-                         │
-      10 kΩ pull-down ───┘
+  5 V supply ──► relay module VCC
+         GND ──► relay module GND ──── tied to TTGO GND
+       GPIO2 ──► relay module IN       3.3 V logic, no series resistor
 ```
 
-One thing worth knowing before you copy this: a plain PC817 at 3.3 V is marginal
-for driving an SSR input. The LED drops ~1.2 V, so 330 Ω gives roughly 6 mA in,
-and a rank-A PC817 (CTR ≥ 50 %) yields only a few mA out. A **Darlington
-optocoupler such as the TLP127** has the same 4-pin footprint, a CTR above 1000 %,
-and is a drop-in replacement with far more headroom. Drive the output side from a
-separate 24 V supply so the transistor's 1–2 V saturation drop is irrelevant, and
-keep the two grounds apart so the isolation is real.
+The coil runs on 5 V from a separate supply, while the module's `IN` pin is
+driven straight from the ESP32's 3.3 V GPIO. That works because `IN` is a logic
+input, not the coil itself — no series resistor is required. The two grounds must
+be tied together, otherwise the signal has no reference.
+
+> [!WARNING]
+> This assumes an **active-HIGH** module, where a high `IN` energises the relay.
+> Plenty of cheap relay boards are **active-LOW**, and on those the whole
+> fail-safe design inverts: the firmware drives the pin LOW as the first
+> statement in `setup()`, which on an active-LOW board would switch the heater
+> **on** at every boot and every brownout. Check which kind you have before you
+> connect anything to mains.
+
+Check the contact rating against your element as well. A 2 kW heater draws about
+9 A, which sits at the very top of what the common 10 A relay modules are rated
+for, and a resistive mains load is hard on relay contacts over thousands of
+cycles. This is the argument for the solid state relay the project originally
+used — the relay is simpler, the SSR lasts longer.
+
+The firmware still calls this output `SSR_PIN` and `SSR_*` throughout. Those are
+identifier names carried over from the original design, not a claim about what
+is on the other end of the wire.
+
 
 ---
 

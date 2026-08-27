@@ -5,20 +5,19 @@
  *
  * Reads live data from a Growatt SPH hybrid inverter over Modbus RTU
  * (RS485), serves a dashboard and JSON API from a WiFi access point,
- * and switches a solid state relay to dump surplus solar into a water
- * heater.
+ * and switches a relay to dump surplus solar into a water heater.
  *
  * Hardware:
  *  - LILYGO TTGO T-Call V1.3 (ESP32 + SIM800L + IP5306)
  *  - Waveshare TTL <-> RS485 transceiver (A / B screw terminals)
- *  - PC817 optocoupler + resistors (330R series, 10k pull-down)
- *  - SSR RSR 62-48D25 (4-32V DC input, 230V/25A AC output)
+ *  - Relay module with a 5V coil, fed from a separate 5V supply. Its
+ *    IN pin is driven straight from 3.3V logic, no series resistor.
  *
  * GPIO mapping:
  *  - GPIO19 (RX2) <-- transceiver RO   [GPIO16/17 taken by PSRAM!]
  *  - GPIO18 (TX2) --> transceiver DI
  *  - GPIO25       --> transceiver DE+RE [GPIO4/5 taken by SIM800!]
- *  - GPIO2        --> PC817 anode (via 330R) -> SSR
+ *  - GPIO2        --> relay module IN (3.3V logic, no resistor)
  *  - GPIO13       --> built-in LED (status)   [LED on T-Call]
  *
  * Pins taken by the T-Call board (DO NOT USE):
@@ -81,7 +80,7 @@ const char *WIFI_SSID = "Growatt-heater";
 
 // GPIO pins (T-Call V1.3 - see the pin map in the header!)
 #define MAX485_DE_RE_PIN 25  // RS485 direction control (DE+RE tied together)
-#define SSR_PIN 2            // SSR output through the optocoupler
+#define SSR_PIN 2            // relay module IN (name kept from the SSR design)
 #define LED_PIN 13           // built-in LED on the T-Call V1.3
 
 // Modbus
